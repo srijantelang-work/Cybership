@@ -2,14 +2,14 @@ import { HttpClient } from '../../src/http/http-client';
 import { AxiosRequestConfig } from 'axios';
 
 export class MockHttpClient extends HttpClient {
-    private mocks: Map<string, any> = new Map();
+    private mocks: Map<string, unknown> = new Map();
 
     constructor() {
         super();
     }
 
     // Register a mock response for a specific URL or partial URL
-    public mockResponse(urlFragment: string, response: any) {
+    public mockResponse<T>(urlFragment: string, response: T): void {
         this.mocks.set(urlFragment, response);
     }
 

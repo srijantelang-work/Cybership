@@ -3,7 +3,7 @@ import { RateRequest, RateResponse, RateRequestSchema } from '../../types/rate';
 import { HttpClient } from '../../http/http-client';
 import { UpsAuthProvider } from '../../auth/ups-oauth';
 import { UPSMapper } from './mappers';
-import { UPSRateResponse } from './types';
+import { UPSRateResponseSchema } from './types';
 import { ValidationError } from '../../types/errors';
 
 export class UpsCarrier implements ICarrier {
@@ -19,10 +19,10 @@ export class UpsCarrier implements ICarrier {
     }
 
     public async getRates(request: RateRequest): Promise<RateResponse> {
-        // 1. Validate Input
-        const validation = RateRequestSchema.safeParse(request);
-        if (!validation.success) {
-            throw new ValidationError('Invalid rate request', validation.error.format());
+        // 1. Validate Input with Zod
+        const inputValidation = RateRequestSchema.safeParse(request);
+        if (!inputValidation.success) {
+            throw new ValidationError('Invalid rate request', inputValidation.error.format());
         }
 
         // 2. Get Access Token
@@ -32,9 +32,7 @@ export class UpsCarrier implements ICarrier {
         const upsRequest = UPSMapper.toUPSRequest(request);
 
         // 4. Make API Call
-        // UPS Rating API URL usually ends with /rating/v1/Shop or similar
-        // We'll append /rating/v1/Shop to the base URL
-        const response = await this.httpClient.request<UPSRateResponse>({
+        const rawResponse = await this.httpClient.request<unknown>({
             method: 'POST',
             url: '/rating/v1/Shop',
             headers: {
@@ -44,7 +42,13 @@ export class UpsCarrier implements ICarrier {
             data: upsRequest,
         }, this.name);
 
-        // 5. Map to Domain Response
-        return UPSMapper.toRateResponse(response, request);
+        // 5. Parse and Validate Response with Zod
+        const responseValidation = UPSRateResponseSchema.safeParse(rawResponse);
+        if (!responseValidation.success) {
+            throw new ValidationError('Invalid response from UPS API', responseValidation.error.format());
+        }
+
+        // 6. Map to Domain Response
+        return UPSMapper.toRateResponse(responseValidation.data, request);
     }
 }

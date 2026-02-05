@@ -1,15 +1,7 @@
 import { IAuthProvider, ICarrierConfig } from '../types/carrier';
 import { HttpClient } from '../http/http-client';
-import { AuthenticationError } from '../types/errors';
-
-interface TokenResponse {
-    access_token: string;
-    expires_in: string; // Returns as string in seconds, e.g., "14399"
-    status: string;
-    token_type: string;
-    issued_at: string;
-    client_id: string;
-}
+import { AuthenticationError, ValidationError } from '../types/errors';
+import { UPSTokenResponseSchema, TokenResponse } from '../carriers/ups/types';
 
 export class UpsAuthProvider implements IAuthProvider {
     private token: string | null = null;
@@ -33,7 +25,7 @@ export class UpsAuthProvider implements IAuthProvider {
     }
 
     private isValid(): boolean {
-        // Refresh 5 minutes (300000ms) before actual expiry provided by UPS
+        // Refresh 5 minutes (300000ms) before actual expiry
         return Date.now() < (this.expiresAt - 300000);
     }
 
@@ -41,7 +33,7 @@ export class UpsAuthProvider implements IAuthProvider {
         try {
             const credentials = Buffer.from(`${this.config.clientId}:${this.config.clientSecret}`).toString('base64');
 
-            const response = await this.httpClient.request<TokenResponse>({
+            const rawResponse = await this.httpClient.request<unknown>({
                 method: 'POST',
                 url: this.config.authUrl,
                 headers: {
@@ -54,13 +46,22 @@ export class UpsAuthProvider implements IAuthProvider {
                 }).toString(),
             }, 'UPS');
 
+            // Parse and validate the response with Zod
+            const parseResult = UPSTokenResponseSchema.safeParse(rawResponse);
+            if (!parseResult.success) {
+                throw new ValidationError('Invalid token response from UPS', parseResult.error.format());
+            }
+
+            const response: TokenResponse = parseResult.data;
             this.token = response.access_token;
-            // expires_in is seconds, convert to ms and add to current time
             const expiresInMs = parseInt(response.expires_in, 10) * 1000;
             this.expiresAt = Date.now() + expiresInMs;
 
             return this.token;
         } catch (error) {
+            if (error instanceof ValidationError) {
+                throw error;
+            }
             throw new AuthenticationError('Failed to retrieve access token', 'UPS', error);
         }
     }

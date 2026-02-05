@@ -1,4 +1,77 @@
-// UPS Rating API specific types
+import { z } from 'zod';
+
+// ============================================
+// UPS API Response Schemas (Zod)
+// ============================================
+
+export const UPSServiceSchema = z.object({
+    Code: z.string(),
+    Description: z.string().optional().default('UPS Service'),
+});
+
+export const UPSTotalChargesSchema = z.object({
+    CurrencyCode: z.string(),
+    MonetaryValue: z.string(),
+});
+
+export const UPSGuaranteedDeliverySchema = z.object({
+    BusinessDaysInTransit: z.string().optional(),
+    DeliveryByTime: z.string().optional(),
+}).optional();
+
+export const UPSRatedShipmentSchema = z.object({
+    Service: UPSServiceSchema,
+    TotalCharges: UPSTotalChargesSchema,
+    GuaranteedDelivery: UPSGuaranteedDeliverySchema,
+    RatedShipmentAlert: z.array(z.object({
+        Code: z.string(),
+        Description: z.string(),
+    })).optional(),
+});
+
+export const UPSResponseStatusSchema = z.object({
+    Code: z.string(),
+    Description: z.string().optional(),
+});
+
+export const UPSRateResponseSchema = z.object({
+    RateResponse: z.object({
+        Response: z.object({
+            ResponseStatus: UPSResponseStatusSchema,
+            Alert: z.array(z.object({
+                Code: z.string(),
+                Description: z.string(),
+            })).optional(),
+        }),
+        RatedShipment: z.union([
+            z.array(UPSRatedShipmentSchema),
+            UPSRatedShipmentSchema, // UPS sometimes returns single object instead of array
+        ]).transform((val) => Array.isArray(val) ? val : [val]),
+    }),
+});
+
+// Infer types from schemas
+export type UPSRatedShipment = z.infer<typeof UPSRatedShipmentSchema>;
+export type UPSRateResponse = z.infer<typeof UPSRateResponseSchema>;
+
+// ============================================
+// OAuth Token Response Schema
+// ============================================
+
+export const UPSTokenResponseSchema = z.object({
+    access_token: z.string(),
+    expires_in: z.string(),
+    token_type: z.string(),
+    status: z.string().optional(),
+    issued_at: z.string().optional(),
+    client_id: z.string().optional(),
+});
+
+export type TokenResponse = z.infer<typeof UPSTokenResponseSchema>;
+
+// ============================================
+// UPS API Request Types (unchanged)
+// ============================================
 
 export interface UPSAddress {
     AddressLine: string[];
@@ -10,7 +83,7 @@ export interface UPSAddress {
 
 export interface UPSPackageWeight {
     UnitOfMeasurement: {
-        Code: string; // "LBS", "KGS"
+        Code: string;
         Description?: string;
     };
     Weight: string;
@@ -18,7 +91,7 @@ export interface UPSPackageWeight {
 
 export interface UPSPackageDimensions {
     UnitOfMeasurement: {
-        Code: string; // "IN", "CM"
+        Code: string;
         Description?: string;
     };
     Length: string;
@@ -52,7 +125,7 @@ export interface UPSRateRequest {
                 Name: string;
                 Address: UPSAddress;
             };
-            ShipFrom: { // Required by UPS, usually same as Shipper
+            ShipFrom: {
                 Name: string;
                 Address: UPSAddress;
             };
@@ -60,42 +133,7 @@ export interface UPSRateRequest {
             Service?: {
                 Code: string;
                 Description?: string;
-            };  // Optional for "Shop" requests (getting all rates)
-        };
-    };
-}
-
-export interface UPSRatedShipment {
-    Service: {
-        Code: string;
-        Description: string;
-    };
-    RatedShipmentAlert?: {
-        Code: string;
-        Description: string;
-    }[];
-    TotalCharges: {
-        CurrencyCode: string;
-        MonetaryValue: string;
-    };
-    GuaranteedDelivery?: {
-        BusinessDaysInTransit?: string;
-        DeliveryByTime?: string;
-    };
-}
-
-export interface UPSRateResponse {
-    RateResponse: {
-        Response: {
-            ResponseStatus: {
-                Code: string;
-                Description: string;
             };
-            Alert?: {
-                Code: string;
-                Description: string;
-            }[];
         };
-        RatedShipment: UPSRatedShipment[]; // Array because we request multiple rates
     };
 }

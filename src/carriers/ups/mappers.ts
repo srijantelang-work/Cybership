@@ -8,7 +8,7 @@ export class UPSMapper {
         return {
             RateRequest: {
                 Request: {
-                    RequestOption: 'Shop', // Shop for all rates
+                    RequestOption: 'Shop',
                 },
                 Shipment: {
                     Shipper: {
@@ -24,20 +24,18 @@ export class UPSMapper {
                         Address: this.toUPSAddress(request.destination),
                     },
                     Package: request.packages.map(pkg => this.toUPSPackage(pkg)),
-                    // If serviceLevel is provided, we could map it here, but 'Shop' request usually omits it to get all rates
                 },
             },
         };
     }
 
     static toRateResponse(upsResponse: UPSRateResponse, originalRequest: RateRequest): RateResponse {
-        const shipmentQuotes: UPSRatedShipment[] = Array.isArray(upsResponse.RateResponse.RatedShipment)
-            ? upsResponse.RateResponse.RatedShipment
-            : [upsResponse.RateResponse.RatedShipment]; // Handle single object response edge case
+        // RatedShipment is already normalized to array by Zod transform
+        const shipmentQuotes: UPSRatedShipment[] = upsResponse.RateResponse.RatedShipment;
 
         const quotes: RateQuote[] = shipmentQuotes.map(quote => ({
             carrier: 'UPS',
-            service: quote.Service.Description || 'UPS Service', // Fallback
+            service: quote.Service.Description ?? 'UPS Service',
             serviceCode: quote.Service.Code,
             totalCost: {
                 amount: parseFloat(quote.TotalCharges.MonetaryValue),
@@ -46,7 +44,6 @@ export class UPSMapper {
             transitDays: quote.GuaranteedDelivery?.BusinessDaysInTransit
                 ? parseInt(quote.GuaranteedDelivery.BusinessDaysInTransit, 10)
                 : undefined,
-            deliveryDate: undefined, // UPS sometime puts date in diverse formats, keeping simple for now
         }));
 
         return {
@@ -75,7 +72,7 @@ export class UPSMapper {
     private static toUPSPackage(pkg: Package): UPSPackage {
         return {
             PackagingType: {
-                Code: '02', // Customer Supplied Package
+                Code: '02',
             },
             Dimensions: {
                 UnitOfMeasurement: {
