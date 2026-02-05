@@ -1,8 +1,9 @@
 import { ICarrier } from '../types/carrier';
+import { RateRequest, RateResponse } from '../types/rate';
 
 export abstract class BaseCarrier implements ICarrier {
     abstract name: string;
-    abstract getRates(request: any): Promise<any>;
+    abstract getRates(request: RateRequest): Promise<RateResponse>;
 }
 
 export class CarrierRegistry {

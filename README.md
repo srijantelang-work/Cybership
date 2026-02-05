@@ -13,15 +13,31 @@ Prerequisites: Node.js (v18+)
   npm install
   ```
 
-2. Run the demo — Simulates a rate shopping request from New York to Los Angeles, showing authentication, API call, and normalized response.
+2. Run the interactive demo — Enter origin, destination, and package weight to get shipping rates.
   ```bash
   npm start
   ```
+  The demo will prompt for:
+  - Origin (city, state, zip)
+  - Destination (city, state, zip)
+  - Package weight (lbs)
 
-3. Run tests — Executes integration tests verifying rate shopping, error handling, and validation.
+3. Run tests
   ```bash
   npm test
   ```
+
+ Mock Pricing Logic
+
+Since real UPS API credentials are not available, the demo uses a mock pricing formula:
+
+| Service | Formula |
+|---------|---------|
+| UPS Ground | $5 + $2/lb |
+| UPS 2nd Day Air | $15 + $5/lb |
+| UPS Next Day Air | $30 + $10/lb |
+
+Example: A 10 lb package → Ground: $25, 2-Day: $65, Next Day: $130
 
  Design Decisions
 
@@ -33,14 +49,9 @@ Prerequisites: Node.js (v18+)
 
  What I Would Improve Given More Time
 
-1. Rate Quote Caching 
-  Cache identical rate requests for a short TTL. Reduces API calls and latency for repeated queries.
-
-2. Additional Carriers as Proof of Extensibility 
-  Implement FedEx or USPS to demonstrate the architecture truly supports multi-carrier without modification.
-
-3. Webhooks for Async Updates 
-  Support push-based tracking updates instead of polling, using carrier webhook integrations.
+1. Rate Quote Caching — Cache identical requests to reduce API calls.
+2. Additional Carriers — Add FedEx/USPS to prove extensibility.
+3. Webhooks — Push-based tracking updates instead of polling.
 
 
 

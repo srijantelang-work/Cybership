@@ -1,164 +1,102 @@
+import * as readline from 'readline';
 import { UpsCarrier } from './carriers/ups/ups-carrier';
 import { ICarrierConfig } from './types/carrier';
 import { HttpClient } from './http/http-client';
 import { RateRequest } from './types/rate';
 
-// Verbose Mock Client with detailed logging
+// Mock HTTP Client with dynamic pricing based on weight
 class DemoMockClient extends HttpClient {
+    private weight: number = 5;
+
+    setWeight(w: number) { this.weight = w; }
+
     async request<T>(config: any, carrier: string): Promise<T> {
-        console.log('\n' + '='.repeat(60));
-        console.log(`📡 HTTP REQUEST`);
-        console.log('='.repeat(60));
-        console.log(`Method: ${config.method}`);
-        console.log(`URL: ${config.url}`);
-        console.log(`Headers:`, JSON.stringify(config.headers, null, 2));
-
         if (config.url?.includes('oauth')) {
-            console.log(`Body: grant_type=client_credentials`);
-
-            const tokenResponse = {
-                access_token: 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.mock_token_12345',
-                expires_in: '14399',
-                status: 'approved',
-                token_type: 'Bearer',
-                issued_at: Date.now().toString(),
-                client_id: 'demo_client_id'
-            };
-
-            console.log('\n' + '-'.repeat(60));
-            console.log(`✅ OAUTH RESPONSE`);
-            console.log('-'.repeat(60));
-            console.log(JSON.stringify(tokenResponse, null, 2));
-
-            return tokenResponse as any;
+            return { access_token: 'mock_token', expires_in: '14399', token_type: 'Bearer' } as any;
         }
-
         if (config.url?.includes('Shop')) {
-            console.log(`Body (Rate Request):`, JSON.stringify(config.data, null, 2));
+            // MOCK PRICING LOGIC:
+            // Base rate + $2 per pound for Ground
+            // Base rate + $5 per pound for 2-Day
+            // Base rate + $10 per pound for Next Day
+            const groundPrice = 5 + (this.weight * 2);      // $5 base + $2/lb
+            const twoDayPrice = 15 + (this.weight * 5);     // $15 base + $5/lb
+            const nextDayPrice = 30 + (this.weight * 10);   // $30 base + $10/lb
 
-            const rateResponse = {
+            return {
                 RateResponse: {
-                    Response: {
-                        ResponseStatus: { Code: "1", Description: "Success" }
-                    },
+                    Response: { ResponseStatus: { Code: "1" } },
                     RatedShipment: [
-                        {
-                            Service: { Code: "03", Description: "UPS Ground" },
-                            TotalCharges: { CurrencyCode: "USD", MonetaryValue: "15.00" },
-                            GuaranteedDelivery: { BusinessDaysInTransit: "5" }
-                        },
-                        {
-                            Service: { Code: "02", Description: "UPS 2nd Day Air" },
-                            TotalCharges: { CurrencyCode: "USD", MonetaryValue: "35.50" },
-                            GuaranteedDelivery: { BusinessDaysInTransit: "2" }
-                        },
-                        {
-                            Service: { Code: "01", Description: "UPS Next Day Air" },
-                            TotalCharges: { CurrencyCode: "USD", MonetaryValue: "65.00" },
-                            GuaranteedDelivery: { BusinessDaysInTransit: "1" }
-                        }
+                        { Service: { Code: "03", Description: "UPS Ground" }, TotalCharges: { CurrencyCode: "USD", MonetaryValue: groundPrice.toFixed(2) }, GuaranteedDelivery: { BusinessDaysInTransit: "5" } },
+                        { Service: { Code: "02", Description: "UPS 2nd Day Air" }, TotalCharges: { CurrencyCode: "USD", MonetaryValue: twoDayPrice.toFixed(2) }, GuaranteedDelivery: { BusinessDaysInTransit: "2" } },
+                        { Service: { Code: "01", Description: "UPS Next Day Air" }, TotalCharges: { CurrencyCode: "USD", MonetaryValue: nextDayPrice.toFixed(2) }, GuaranteedDelivery: { BusinessDaysInTransit: "1" } },
                     ]
                 }
-            };
-
-            console.log('\n' + '-'.repeat(60));
-            console.log(`✅ UPS RATING API RESPONSE`);
-            console.log('-'.repeat(60));
-            console.log(JSON.stringify(rateResponse, null, 2));
-
-            return rateResponse as any;
+            } as any;
         }
-
         return {} as any;
     }
 }
 
+const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+const ask = (q: string): Promise<string> => new Promise(resolve => rl.question(q, resolve));
+
 async function runDemo() {
-    console.log('🚀 CARRIER INTEGRATION SERVICE - DEMO');
-    console.log('=====================================\n');
+    console.log('\n🚀 CARRIER RATE SHOPPING DEMO\n');
 
-    // Configuration
-    const config: ICarrierConfig = {
-        clientId: 'demo_client_id',
-        clientSecret: 'demo_client_secret_xxxxx',
-        accountNumber: '123456',
-        baseUrl: 'https://onlinetools.ups.com',
-        authUrl: 'https://onlinetools.ups.com/security/v1/oauth/token',
-    };
+    // Get Origin
+    console.log('📍 ORIGIN ADDRESS:');
+    const originCity = await ask('   City: ');
+    const originState = await ask('   State (e.g. NY): ');
+    const originZip = await ask('   Zip Code: ');
 
-    console.log('📋 CONFIGURATION:');
-    console.log(`   Client ID: ${config.clientId}`);
-    console.log(`   Account: ${config.accountNumber}`);
-    console.log(`   API Base: ${config.baseUrl}`);
+    // Get Destination
+    console.log('\n📍 DESTINATION ADDRESS:');
+    const destCity = await ask('   City: ');
+    const destState = await ask('   State (e.g. CA): ');
+    const destZip = await ask('   Zip Code: ');
 
-    // Initialize carrier
-    const carrier = new UpsCarrier(config, new DemoMockClient());
-    console.log(`\n✅ Initialized carrier: ${carrier.name}`);
+    // Get Package
+    console.log('\n📦 PACKAGE:');
+    const weight = parseFloat(await ask('   Weight (lbs): ')) || 5;
 
-    // Build the rate request
+    rl.close();
+
+    // Build request
     const request: RateRequest = {
-        origin: {
-            name: 'Sender Corp',
-            street1: '123 Main Street',
-            city: 'New York',
-            stateProvince: 'NY',
-            postalCode: '10001',
-            countryCode: 'US',
-        },
-        destination: {
-            name: 'Receiver Inc',
-            street1: '456 Hollywood Blvd',
-            city: 'Los Angeles',
-            stateProvince: 'CA',
-            postalCode: '90028',
-            countryCode: 'US',
-        },
-        packages: [
-            {
-                weight: { value: 5, unit: 'LBS' },
-                dimensions: { length: 12, width: 8, height: 6, unit: 'IN' },
-            },
-        ],
+        origin: { name: 'Sender', street1: '123 Main St', city: originCity, stateProvince: originState, postalCode: originZip, countryCode: 'US' },
+        destination: { name: 'Receiver', street1: '456 Other St', city: destCity, stateProvince: destState, postalCode: destZip, countryCode: 'US' },
+        packages: [{ weight: { value: weight, unit: 'LBS' }, dimensions: { length: 10, width: 10, height: 10, unit: 'IN' } }]
     };
 
-    console.log('\n📦 RATE REQUEST (Your Input):');
-    console.log('-'.repeat(40));
-    console.log(`From: ${request.origin.name}`);
-    console.log(`      ${request.origin.street1}, ${request.origin.city}, ${request.origin.stateProvince} ${request.origin.postalCode}`);
-    console.log(`To:   ${request.destination.name}`);
-    console.log(`      ${request.destination.street1}, ${request.destination.city}, ${request.destination.stateProvince} ${request.destination.postalCode}`);
-    console.log(`Package: ${request.packages[0].weight.value} ${request.packages[0].weight.unit}, ${request.packages[0].dimensions.length}x${request.packages[0].dimensions.width}x${request.packages[0].dimensions.height} ${request.packages[0].dimensions.unit}`);
+    console.log('\n⏳ Fetching rates...\n');
+
+    // Get rates
+    const config: ICarrierConfig = { clientId: 'demo', clientSecret: 'demo', accountNumber: '123456', baseUrl: 'https://ups.com', authUrl: 'https://ups.com/oauth' };
+    const mockClient = new DemoMockClient();
+    mockClient.setWeight(weight);
+    const carrier = new UpsCarrier(config, mockClient);
 
     try {
-        console.log('\n🔄 PROCESSING...');
-        console.log('   Step 1: Validating input...');
-        console.log('   Step 2: Getting OAuth token...');
-
         const response = await carrier.getRates(request);
 
-        console.log('\n' + '='.repeat(60));
-        console.log('📊 FINAL NORMALIZED RESPONSE (What You Get Back)');
-        console.log('='.repeat(60));
-        console.log(`Timestamp: ${response.timestamp.toISOString()}`);
-        console.log(`Number of quotes: ${response.quotes.length}`);
-        console.log('\nAvailable Shipping Options:');
-        console.log('-'.repeat(40));
+        console.log('✅ SHIPPING OPTIONS:\n');
+        console.log(`   From: ${originCity}, ${originState} ${originZip}`);
+        console.log(`   To:   ${destCity}, ${destState} ${destZip}`);
+        console.log(`   Weight: ${weight} lbs\n`);
 
-        response.quotes.forEach((quote, index) => {
-            console.log(`\n  Option ${index + 1}: ${quote.service}`);
-            console.log(`    Service Code: ${quote.serviceCode}`);
-            console.log(`    Price: $${quote.totalCost.amount.toFixed(2)} ${quote.totalCost.currency}`);
-            if (quote.transitDays) {
-                console.log(`    Transit Time: ${quote.transitDays} business days`);
-            }
+        console.log('   📊 PRICING FORMULA (Mock):');
+        console.log('   Ground:   $5 base + $2/lb');
+        console.log('   2-Day:    $15 base + $5/lb');
+        console.log('   Next Day: $30 base + $10/lb\n');
+
+        console.log('   ' + '-'.repeat(40));
+        response.quotes.forEach((q, i) => {
+            console.log(`   ${i + 1}. ${q.service.padEnd(20)} $${q.totalCost.amount.toFixed(2)} (${q.transitDays} days)`);
         });
-
-        console.log('\n' + '='.repeat(60));
-        console.log('✅ DEMO COMPLETE');
-        console.log('='.repeat(60));
-
-    } catch (err) {
-        console.error('\n❌ Error:', err);
+        console.log('   ' + '-'.repeat(40) + '\n');
+    } catch (err: any) {
+        console.error('❌ Error:', err.message);
     }
 }
 

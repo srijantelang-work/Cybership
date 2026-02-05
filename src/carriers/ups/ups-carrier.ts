@@ -45,8 +45,6 @@ export class UpsCarrier implements ICarrier {
         }, this.name);
 
         // 5. Map to Domain Response
-        // TODO: Add error check for UPS specific response status inside mapper or here if successful HTTP but logical error
-
         return UPSMapper.toRateResponse(response, request);
     }
 }
