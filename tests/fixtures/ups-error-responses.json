@@ -1,0 +1,22 @@
+{
+    "badRequest": {
+        "response": {
+            "errors": [
+                {
+                    "code": "250003",
+                    "message": "Invalid Access License Number"
+                }
+            ]
+        }
+    },
+    "unauthorized": {
+        "response": {
+            "errors": [
+                {
+                    "code": "911",
+                    "message": "Not authenticated"
+                }
+            ]
+        }
+    }
+}

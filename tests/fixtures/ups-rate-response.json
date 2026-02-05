@@ -1,0 +1,35 @@
+{
+    "RateResponse": {
+        "Response": {
+            "ResponseStatus": {
+                "Code": "1",
+                "Description": "Success"
+            }
+        },
+        "RatedShipment": [
+            {
+                "Service": {
+                    "Code": "03",
+                    "Description": "UPS Ground"
+                },
+                "TotalCharges": {
+                    "CurrencyCode": "USD",
+                    "MonetaryValue": "15.00"
+                },
+                "GuaranteedDelivery": {
+                    "BusinessDaysInTransit": "3"
+                }
+            },
+            {
+                "Service": {
+                    "Code": "02",
+                    "Description": "UPS 2nd Day Air"
+                },
+                "TotalCharges": {
+                    "CurrencyCode": "USD",
+                    "MonetaryValue": "35.50"
+                }
+            }
+        ]
+    }
+}

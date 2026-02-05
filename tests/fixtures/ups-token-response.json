@@ -1,0 +1,8 @@
+{
+  "access_token": "mock_access_token_12345",
+  "expires_in": "14399",
+  "status": "approved",
+  "token_type": "Bearer",
+  "issued_at": "1674680000000",
+  "client_id": "mock_client_id"
+}
